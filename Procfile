@@ -1,1 +1,1 @@
-gunicorn py:Flask(__name__)
+gunicorn py:app
