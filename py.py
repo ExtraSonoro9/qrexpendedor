@@ -1,30 +1,45 @@
 from flask import Flask, request, jsonify
+import requests
 
 app = Flask(__name__)
 
-# Estado simple en memoria (en producción usar base de datos)
-ultimo_pago_aprobado = None
+ACCESS_TOKEN = "TU_ACCESS_TOKEN"
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global ultimo_pago_aprobado
-    data = request.json
+    data = request.args  # Mercado Pago envía info por query params
+    payment_id = data.get("data.id")
+    order_id = data.get("data.id")
+    external_ref = data.get("data.external_reference")
+    tipo = data.get("type")
 
-    if data.get("type") == "payment" and data["data"]["status"] == "approved":
-        ultimo_pago_aprobado = data["data"]["id"]
-        print("Pago aprobado:", ultimo_pago_aprobado)
+    print("Webhook recibido:", data)
 
-    return jsonify({"status": "ok"})
+    if tipo == "order" and order_id:
+        # Consultar la orden para ver pagos
+        url = f"https://api.mercadopago.com/checkout/orders/{order_id}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        resp = requests.get(url, headers=headers)
+        order = resp.json()
 
-@app.route("/estado_pago", methods=["GET"])
-def estado_pago():
-    """Endpoint para que Tkinter consulte si hay pago aprobado"""
-    global ultimo_pago_aprobado
-    if ultimo_pago_aprobado:
-        pago = ultimo_pago_aprobado
-        ultimo_pago_aprobado = None  # limpiar después de notificar
-        return jsonify({"aprobado": True, "id_pago": pago})
-    return jsonify({"aprobado": False})
+        # Revisar pagos asociados
+        payments = order.get("payments", [])
+        for p in payments:
+            if p.get("status") == "approved":
+                print(f"Pago aprobado para la orden {external_ref} ✅")
+                break
+
+    elif tipo.startswith("payment") and payment_id:
+        # Si recibimos directamente un payment id
+        url = f"https://api.mercadopago.com/v1/payments/{payment_id}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        resp = requests.get(url, headers=headers)
+        payment = resp.json()
+
+        if payment.get("status") == "approved":
+            print(f"Pago aprobado para el pago {payment_id} ✅")
+
+    return jsonify({"status": "ok"}), 200
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=5000)
