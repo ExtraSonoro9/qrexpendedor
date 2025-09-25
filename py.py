@@ -3,7 +3,7 @@ import requests
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = "TU_ACCESS_TOKEN"
+ACCESS_TOKEN = "APP_USR-877458804311630-092416-287a1adc56b6c7e14a1bde943097959a-1081932903"
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
