@@ -10,31 +10,30 @@ last_payment = {}
 @app.route("/")
 def home():
     return "Servidor Flask con Webhooks funcionando"
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     global last_payment
-    data = request.get_json()
 
-    if data and "data" in data and "id" in data["data"]:
+    # Primero intentamos leer JSON
+    data = request.get_json(silent=True)
+
+    if not data:
+        # Si no hay JSON, revisamos query params (modo prueba)
+        payment_id = request.args.get("data.id")
+        if payment_id:
+            last_payment = {"id": payment_id, "status": "approved"}  # simulamos aprobado
+            print("📩 Webhook de prueba recibido, payment_id:", payment_id, flush=True)
+            return jsonify({"status": "ok"}), 200
+        else:
+            return jsonify({"status": "no data"}), 400
+
+    # Si hay JSON normal (pagos reales)
+    if "data" in data and "id" in data["data"]:
         payment_id = data["data"]["id"]
-
-        # Consultar estado real a la API de MercadoPago
-        url = f"https://api.mercadopago.com/v1/payments/{payment_id}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        resp = requests.get(url, headers=headers)
-
-        if resp.status_code == 200:
-            payment_info = resp.json()
-            last_payment = {
-                "id": payment_info.get("id"),
-                "status": payment_info.get("status"),
-                "amount": payment_info.get("transaction_amount"),
-                "payer": payment_info.get("payer", {}).get("email")
-            }
-            print("✅ Pago confirmado:", last_payment, flush=True)
-
+        # Aquí llamás a la API de MercadoPago para confirmar
+        # ...
     return jsonify({"status": "ok"}), 200
+
 
 @app.route("/last_payment")
 def get_last_payment():
