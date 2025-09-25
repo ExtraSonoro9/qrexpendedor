@@ -2,3 +2,4 @@ Flask
 requests
 qrcode
 Pillow
+gunicorn
